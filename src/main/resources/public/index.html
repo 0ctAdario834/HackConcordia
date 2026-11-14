@@ -9,7 +9,10 @@
     <body>
         <header>
             <fieldset>
-                <input type="search" id="search" placeholder="search places">
+                <form class="search-form" role="search">
+                    <input type="search" id="search" name="q" placeholder="search places">
+                    <button type="submit" id="search-button">Search</button>
+                </form>
                 <ul class="tags">
                     <li>
                         <input type="checkbox" id="tag1" value="tag1">
