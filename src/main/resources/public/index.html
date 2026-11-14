@@ -34,26 +34,63 @@
             </fieldset>
         </header>
         <main>
-            <ul class="results">
+            <ul class="results" id="results"></ul>
+            <template id="place-template">
                 <li class="result">
-                    <h2>Place name</h2>
-                    <p>Short description of the place.</p>
+                    <h2></h2>
+                    <p></p>
                 </li>
-                <li class="result">
-                    <h2>Place name</h2>
-                    <p>Short description of the place.</p>
-                </li>
-                <li class="result">
-                    <h2>Place name</h2>
-                    <p>Short description of the place.</p>
-                </li>
-            </ul>
+            </template>
             <div class="add-place">
                 <button type="button" id="add-place">Add new place</button>
             </div>
         </main>
+
+        <dialog id="add-place-dialog">
+            <form id="add-place-form" class="place-form">
+                <h2>Add a new place</h2>
+
+                <label for="place-name">Name</label>
+                <input type="text" id="place-name" name="name" maxlength="100" required>
+
+                <label for="place-description">Description</label>
+                <textarea id="place-description" name="description" rows="3" maxlength="500"></textarea>
+
+                <fieldset class="place-tags">
+                    <legend>Tags</legend>
+                    <div class="tag-options">
+                        <label class="tag-option" for="new-tag1">
+                            <input type="checkbox" id="new-tag1" name="tags" value="Study">
+                            Study
+                        </label>
+                        <label class="tag-option" for="new-tag2">
+                            <input type="checkbox" id="new-tag2" name="tags" value="Library">
+                            Library
+                        </label>
+                        <label class="tag-option" for="new-tag3">
+                            <input type="checkbox" id="new-tag3" name="tags" value="Café">
+                            Café
+                        </label>
+                        <label class="tag-option" for="new-tag4">
+                            <input type="checkbox" id="new-tag4" name="tags" value="Cafeteria">
+                            Cafeteria
+                        </label>
+                    </div>
+                </fieldset>
+
+                <p class="form-error" id="form-error" role="alert"></p>
+
+                <div class="form-actions">
+                    <button type="button" id="cancel-place">Cancel</button>
+                    <button type="submit" id="save-place">Save</button>
+                </div>
+            </form>
+        </dialog>
+
         <footer>
             © OpenStreetMap contributors
         </footer>
+
+        <script src="app.js"></script>
     </body>
 </html>

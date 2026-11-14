@@ -145,6 +145,58 @@ class IndexHtmlTest {
         assertTrue(h.contains("class=\"result\""), "missing .result item");
     }
 
+    // --- add-place dialog ---------------------------------------------------
+
+    @Test
+    void addPlaceDialogExists() throws IOException {
+        assertTrue(loadHtml().contains("<dialog id=\"add-place-dialog\">"));
+    }
+
+    @Test
+    void addPlaceFormHasRequiredNameInput() throws IOException {
+        String h = loadHtml();
+        assertTrue(h.matches("(?s).*<input[^>]*id=\"place-name\"[^>]*required.*")
+                || h.matches("(?s).*<input[^>]*required[^>]*id=\"place-name\".*"),
+                "place-name input must be required");
+    }
+
+    @Test
+    void addPlaceFormHasDescriptionField() throws IOException {
+        assertTrue(loadHtml().contains("<textarea id=\"place-description\""));
+    }
+
+    @Test
+    void addPlaceFormOffersAllTags() throws IOException {
+        String h = loadHtml();
+        for (String tag : new String[] {"Study", "Library", "Café", "Cafeteria"}) {
+            assertTrue(h.contains("name=\"tags\" value=\"" + tag + "\""), "no form checkbox for tag " + tag);
+        }
+    }
+
+    @Test
+    void addPlaceFormHasSaveAndCancelButtons() throws IOException {
+        String h = loadHtml();
+        assertTrue(h.contains("id=\"save-place\""));
+        assertTrue(h.contains("id=\"cancel-place\""));
+    }
+
+    @Test
+    void resultTemplateExistsForRendering() throws IOException {
+        assertTrue(loadHtml().contains("<template id=\"place-template\">"));
+    }
+
+    @Test
+    void resultsContainerIsEmptyForScriptToFill() throws IOException {
+        assertTrue(loadHtml().contains("<ul class=\"results\" id=\"results\"></ul>"));
+    }
+
+    @Test
+    void scriptIsLoadedLast() throws IOException {
+        String h = loadHtml();
+        assertTrue(h.contains("<script src=\"app.js\"></script>"));
+        assertTrue(h.indexOf("<script") > h.indexOf("</footer>"), "script should come after page content");
+    }
+
     // --- integrity ----------------------------------------------------------
 
     @Test

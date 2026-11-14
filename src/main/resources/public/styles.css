@@ -163,6 +163,93 @@ footer {
     min-height: 10vh;
 }
 
+#add-place-dialog {
+    width: min(480px, calc(100% - 2rem));
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 1.25rem;
+}
+
+#add-place-dialog::backdrop {
+    background: rgba(0, 0, 0, 0.4);
+}
+
+.place-form {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.place-form h2 {
+    margin: 0 0 0.5rem;
+    font-size: 1.2rem;
+}
+
+.place-form input[type="text"],
+.place-form textarea {
+    width: 100%;
+    padding: 0.5rem 0.6rem;
+    font: inherit;
+    border: 1px solid #bbb;
+    border-radius: 6px;
+}
+
+.place-tags {
+    border: none;
+    margin: 0.25rem 0 0;
+    padding: 0;
+}
+
+.place-tags legend {
+    padding: 0;
+    margin-bottom: 0.25rem;
+}
+
+.tag-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.tag-option {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.7rem;
+    border: 1px solid #888;
+    border-radius: 999px;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.form-error {
+    min-height: 1.2em;
+    margin: 0.25rem 0 0;
+    color: #b42318;
+    font-size: 0.9rem;
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+}
+
+.form-actions button {
+    padding: 0.5rem 1rem;
+    font-size: 0.95rem;
+    border-radius: 6px;
+    border: 1px solid #888;
+    background: #fff;
+    cursor: pointer;
+}
+
+.form-actions button[type="submit"] {
+    background: #2b6cb0;
+    border-color: #2b6cb0;
+    color: #fff;
+}
+
 @media (max-width: 480px) {
     header {
         padding: 0.75rem;
