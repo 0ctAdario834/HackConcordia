@@ -5,7 +5,8 @@
 body {
     margin: 0;
     font-family: system-ui, sans-serif;
-    background: #f5f6f8;
+    /*background: #f5f6f8;*/
+    background: linear-gradient(to bottom, #fff, #39b9);
     color: #222;
 }
 
@@ -13,6 +14,7 @@ header {
     background: #ffffff;
     padding: 1rem;
     border-bottom: 1px solid #ddd;
+    min-height: 10vh;
 }
 
 header fieldset {
@@ -101,6 +103,7 @@ main {
     max-width: 700px;
     margin: 1.5rem auto;
     padding: 0 1rem;
+    min-height: 80vh;
 }
 
 .results {
@@ -157,6 +160,7 @@ footer {
     text-align: center;
     color: #777;
     font-size: 0.85rem;
+    min-height: 10vh;
 }
 
 @media (max-width: 480px) {
