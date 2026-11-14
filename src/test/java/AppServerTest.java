@@ -10,6 +10,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,7 +23,11 @@ class AppServerTest {
     private static String baseUrl;
 
     @BeforeAll
-    static void startServer() {
+    static void startServer() throws IOException {
+        Path dbFile = Files.createTempFile("app-server-test", ".db");
+        dbFile.toFile().deleteOnExit();
+        System.setProperty("app.db.url", "jdbc:sqlite:" + dbFile.toAbsolutePath());
+
         app = Main.createApp().start(0);
         client = HttpClient.newHttpClient();
         baseUrl = "http://localhost:" + app.port();
