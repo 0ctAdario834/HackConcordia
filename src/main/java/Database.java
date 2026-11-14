@@ -2,19 +2,49 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * SQLite access for HackConcordia.
+ *
+ * <p>The database file is {@code app.db} in the working directory by default.
+ * Override it with the {@code app.db.url} system property (a full JDBC URL), which
+ * the tests use to avoid touching the real file.</p>
+ *
+ * <p>Tags are stored as one comma-separated string per place, for example
+ * {@code Study,Library}. See {@link #listPlaces(String, List)} for how they are matched.</p>
+ */
 public class Database {
     // Creates app.db in the folder the app runs from (the project root in IntelliJ).
     // Tests override this with -Dapp.db.url=... so they never touch the real file.
     private static final String DEFAULT_URL = "jdbc:sqlite:app.db";
 
+    /**
+     * Returns the JDBC URL the app connects to.
+     *
+     * @return the value of {@code app.db.url} if set, otherwise {@code jdbc:sqlite:app.db}
+     */
     public static String url() {
         return System.getProperty("app.db.url", DEFAULT_URL);
     }
 
+    /**
+     * Opens a new connection to the configured database.
+     *
+     * <p>The caller is responsible for closing it, for example with try-with-resources.</p>
+     *
+     * @return an open connection
+     * @throws SQLException if the database cannot be opened
+     */
     public static Connection connect() throws SQLException {
         return DriverManager.getConnection(url());
     }
 
+    /**
+     * Creates the {@code users} and {@code places} tables if they do not exist.
+     *
+     * <p>Safe to call on every startup; existing data is kept.</p>
+     *
+     * @throws RuntimeException if the schema cannot be created
+     */
     public static void init() {
         String usersSql = """
                   CREATE TABLE IF NOT EXISTS users (
@@ -37,6 +67,15 @@ public class Database {
         }
     }
 
+    /**
+     * Saves a new place.
+     *
+     * @param name        display name, already validated by the caller
+     * @param description description text, may be empty
+     * @param tags        tags for the place; stored comma-separated
+     * @return the saved place, including its generated id
+     * @throws SQLException if the insert fails
+     */
     public static Place insertPlace(String name, String description, List<String> tags) throws SQLException {
         String sql = "INSERT INTO places (name, description, tags) VALUES (?, ?, ?)";
         try (Connection conn = connect();
@@ -53,9 +92,17 @@ public class Database {
     }
 
     /**
-     * Lists places, optionally filtered.
-     * @param q    text to find in the name or description (case-insensitive); null or blank for none
+     * Lists places, optionally filtered, oldest first.
+     *
+     * <p>When both filters are given, a place must match the text <em>and</em> have one
+     * of the tags. Search text is matched literally: {@code %} and {@code _} are not
+     * treated as wildcards.</p>
+     *
+     * @param q    text to find in the name or description (case-insensitive for ASCII
+     *             letters only); {@code null} or blank for no text filter
      * @param tags a place matches if it has any of these tags (OR); empty for no tag filter
+     * @return the matching places, in insertion order
+     * @throws SQLException if the query fails
      */
     public static List<Place> listPlaces(String q, List<String> tags) throws SQLException {
         StringBuilder sql = new StringBuilder(
@@ -101,11 +148,23 @@ public class Database {
         return places;
     }
 
-    /** Escapes LIKE wildcards so user input is matched literally. */
+    /**
+     * Escapes the LIKE wildcards {@code %}, {@code _} and the escape character itself,
+     * so user input is matched literally. Pairs with {@code ESCAPE '\\'} in the query.
+     *
+     * @param text raw user input
+     * @return the text with wildcards escaped
+     */
     private static String escapeLike(String text) {
         return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
+    /**
+     * Splits the stored comma-separated tag string into a list, skipping blanks.
+     *
+     * @param stored value of the {@code tags} column; may be {@code null}
+     * @return the individual tags, never {@code null}
+     */
     private static List<String> splitTags(String stored) {
         List<String> tags = new ArrayList<>();
         if (stored != null) {
@@ -118,13 +177,29 @@ public class Database {
         return tags;
     }
 
-    /** A saved place, serialized to JSON by Javalin. */
+    /**
+     * A saved place, serialized to JSON by Javalin.
+     *
+     * <p>Public fields so Jackson can read them directly.</p>
+     */
     public static class Place {
+        /** Database id, assigned on insert. */
         public long id;
+        /** Display name. */
         public String name;
+        /** Description text; empty string if none was given. */
         public String description;
+        /** Tags for this place; empty list if none. */
         public List<String> tags;
 
+        /**
+         * Creates a place value.
+         *
+         * @param id          database id
+         * @param name        display name
+         * @param description description text
+         * @param tags        tags for the place
+         */
         public Place(long id, String name, String description, List<String> tags) {
             this.id = id;
             this.name = name;
