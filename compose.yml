@@ -1,0 +1,9 @@
+services:
+  studious:
+    build: .
+    container_name: studious
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:7070:7070"
+    volumes:
+      - ./data:/app/data

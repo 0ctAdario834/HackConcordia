@@ -1,6 +1,9 @@
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Set;
 
 /**
  * SQLite access for HackConcordia.
@@ -57,11 +60,30 @@ public class Database {
                   id          INTEGER PRIMARY KEY AUTOINCREMENT,
                   name        TEXT NOT NULL,
                   description TEXT NOT NULL DEFAULT '',
-                  tags        TEXT NOT NULL DEFAULT ''
+                  tags        TEXT NOT NULL DEFAULT '',
+                  address     TEXT,
+                  latitude    REAL,
+                  longitude   REAL
               )""";
         try (Connection conn = connect(); Statement st = conn.createStatement()) {
             st.execute(usersSql);
             st.execute(placesSql);
+            // Upgrade databases created before geolocation was added.
+            Set<String> columns = new HashSet<>();
+            try (ResultSet rs = st.executeQuery("PRAGMA table_info(places)")) {
+                while (rs.next()) {
+                    columns.add(rs.getString("name"));
+                }
+            }
+            if (!columns.contains("address")) {
+                st.execute("ALTER TABLE places ADD COLUMN address TEXT");
+            }
+            if (!columns.contains("latitude")) {
+                st.execute("ALTER TABLE places ADD COLUMN latitude REAL");
+            }
+            if (!columns.contains("longitude")) {
+                st.execute("ALTER TABLE places ADD COLUMN longitude REAL");
+            }
         } catch (SQLException e) {
             throw new RuntimeException("DB init failed", e);
         }
@@ -77,16 +99,26 @@ public class Database {
      * @throws SQLException if the insert fails
      */
     public static Place insertPlace(String name, String description, List<String> tags) throws SQLException {
-        String sql = "INSERT INTO places (name, description, tags) VALUES (?, ?, ?)";
+        return insertPlace(name, description, tags, null, null, null);
+    }
+
+    /** Inserts a place; address, latitude and longitude may be null when unknown. */
+    public static Place insertPlace(String name, String description, List<String> tags,
+                                    String address, Double latitude, Double longitude) throws SQLException {
+        String sql = "INSERT INTO places (name, description, tags, address, latitude, longitude) "
+                + "VALUES (?, ?, ?, ?, ?, ?)";
         try (Connection conn = connect();
              PreparedStatement ps = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
             ps.setString(1, name);
             ps.setString(2, description);
             ps.setString(3, String.join(",", tags));
+            ps.setString(4, address);
+            ps.setObject(5, latitude);
+            ps.setObject(6, longitude);
             ps.executeUpdate();
             try (ResultSet keys = ps.getGeneratedKeys()) {
                 keys.next();
-                return new Place(keys.getLong(1), name, description, tags);
+                return new Place(keys.getLong(1), name, description, tags, address, latitude, longitude, null);
             }
         }
     }
@@ -105,8 +137,17 @@ public class Database {
      * @throws SQLException if the query fails
      */
     public static List<Place> listPlaces(String q, List<String> tags) throws SQLException {
+        return listPlaces(q, tags, null, null);
+    }
+
+    /**
+     * Like {@link #listPlaces(String, List)}, but when userLat/userLon are both given, each place
+     * gets a distanceKm and results are sorted nearest first (places without coordinates last).
+     */
+    public static List<Place> listPlaces(String q, List<String> tags, Double userLat, Double userLon)
+            throws SQLException {
         StringBuilder sql = new StringBuilder(
-                "SELECT id, name, description, tags FROM places WHERE 1=1");
+                "SELECT id, name, description, tags, address, latitude, longitude FROM places WHERE 1=1");
         List<String> params = new ArrayList<>();
 
         if (q != null && !q.isBlank()) {
@@ -137,15 +178,37 @@ public class Database {
             }
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
+                    double lat = rs.getDouble("latitude");
+                    Double latitude = rs.wasNull() ? null : lat;
+                    double lon = rs.getDouble("longitude");
+                    Double longitude = rs.wasNull() ? null : lon;
+                    Double distance = (userLat != null && userLon != null && latitude != null && longitude != null)
+                            ? haversineKm(userLat, userLon, latitude, longitude) : null;
                     places.add(new Place(
                             rs.getLong("id"),
                             rs.getString("name"),
                             rs.getString("description"),
-                            splitTags(rs.getString("tags"))));
+                            splitTags(rs.getString("tags")),
+                            rs.getString("address"),
+                            latitude, longitude, distance));
                 }
             }
         }
+        if (userLat != null && userLon != null) {
+            places.sort(Comparator.comparing((Place p) -> p.distanceKm == null)
+                    .thenComparing(p -> p.distanceKm, Comparator.nullsLast(Comparator.naturalOrder())));
+        }
         return places;
+    }
+
+    /** Great-circle distance between two points, in kilometres. */
+    static double haversineKm(double lat1, double lon1, double lat2, double lon2) {
+        double dLat = Math.toRadians(lat2 - lat1);
+        double dLon = Math.toRadians(lon2 - lon1);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2))
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        return 6371.0 * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 
     /**
@@ -192,6 +255,12 @@ public class Database {
         /** Tags for this place; empty list if none. */
         public List<String> tags;
 
+        public String address;
+        public Double latitude;
+        public Double longitude;
+        /** Set only when the list was requested with the user's location. */
+        public Double distanceKm;
+
         /**
          * Creates a place value.
          *
@@ -199,12 +268,21 @@ public class Database {
          * @param name        display name
          * @param description description text
          * @param tags        tags for the place
+         * @param address     address of the place
+         * @param latitude    latitude coordinate
+         * @param longitude   longitude coordinate
+         * @param distanceKm  distance in km from user location
          */
-        public Place(long id, String name, String description, List<String> tags) {
+        public Place(long id, String name, String description, List<String> tags,
+                     String address, Double latitude, Double longitude, Double distanceKm) {
             this.id = id;
             this.name = name;
             this.description = description;
             this.tags = tags;
+            this.address = address;
+            this.latitude = latitude;
+            this.longitude = longitude;
+            this.distanceKm = distanceKm;
         }
     }
 }
