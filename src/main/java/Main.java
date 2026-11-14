@@ -11,5 +11,6 @@ public class Main {
 
     public static void main(String[] args) {
         createApp().start(7000);
+        Database.init();
     }
 }
