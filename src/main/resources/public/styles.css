@@ -98,6 +98,7 @@ main {
     border-radius: 8px;
     padding: 1rem;
     overflow-wrap: anywhere;
+    text-align: center;
 }
 
 .result h2 {
