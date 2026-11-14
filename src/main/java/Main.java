@@ -1,8 +1,15 @@
 import io.javalin.Javalin;
 import io.javalin.http.staticfiles.Location;
 
-void main() {
-    Javalin.create(config ->
-        config.staticFiles.add("/public", Location.CLASSPATH)
-    ).start(7000);
+public class Main {
+
+    public static Javalin createApp() {
+        return Javalin.create(config ->
+            config.staticFiles.add("/public", Location.CLASSPATH)
+        );
+    }
+
+    public static void main(String[] args) {
+        createApp().start(7000);
+    }
 }
