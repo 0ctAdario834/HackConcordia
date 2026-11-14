@@ -11,6 +11,10 @@ document.addEventListener("DOMContentLoaded", () => {
     const searchInput = document.getElementById("search");
     const tagBoxes = document.querySelectorAll("header .tags input[type=checkbox]");
 
+    const nearMeBox = document.getElementById("near-me");
+    const nearMeStatus = document.getElementById("near-me-status");
+
+    let userLocation = null; // { lat, lon } once the browser has given it to us
     let searchTimer = null;
     let latestRequest = null;
 
@@ -20,7 +24,17 @@ document.addEventListener("DOMContentLoaded", () => {
         const details = [place.description, (place.tags || []).join(", ")]
             .filter(Boolean)
             .join(" · ");
-        item.querySelector("p").textContent = details;
+        item.querySelector("p:not(.place-meta)").textContent = details;
+        const extra = [];
+        if (place.address) {
+            extra.push(place.address);
+        }
+        if (typeof place.distanceKm === "number") {
+            extra.push(place.distanceKm < 1
+                ? Math.round(place.distanceKm * 1000) + " m away"
+                : place.distanceKm.toFixed(1) + " km away");
+        }
+        item.querySelector(".place-meta").textContent = extra.join(" · ");
         return item;
     }
 
@@ -52,6 +66,10 @@ document.addEventListener("DOMContentLoaded", () => {
         return params.toString();
     }
 
+    function nearMeActive() {
+        return nearMeBox.checked && userLocation !== null;
+    }
+
     async function loadPlaces() {
         // Cancel any earlier request so a slow old response can't overwrite a newer one.
         if (latestRequest) {
@@ -60,9 +78,15 @@ document.addEventListener("DOMContentLoaded", () => {
         const controller = new AbortController();
         latestRequest = controller;
 
+        const params = new URLSearchParams(currentFilters());
+        if (nearMeActive()) {
+            params.set("lat", userLocation.lat);
+            params.set("lon", userLocation.lon);
+        }
         const query = currentFilters();
+        const fullQuery = params.toString();
         try {
-            const response = await fetch("/api/places" + (query ? "?" + query : ""), {
+            const response = await fetch("/api/places" + (fullQuery ? "?" + fullQuery : ""), {
                 signal: controller.signal,
             });
             if (!response.ok) {
@@ -93,6 +117,36 @@ document.addEventListener("DOMContentLoaded", () => {
 
     tagBoxes.forEach((box) => box.addEventListener("change", loadPlaces));
 
+    nearMeBox.addEventListener("change", () => {
+        nearMeStatus.textContent = "";
+        if (!nearMeBox.checked) {
+            loadPlaces();
+            return;
+        }
+        if (userLocation) {
+            loadPlaces();
+            return;
+        }
+        if (!navigator.geolocation) {
+            nearMeBox.checked = false;
+            nearMeStatus.textContent = "Location is not supported by this browser.";
+            return;
+        }
+        nearMeStatus.textContent = "Locating…";
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude };
+                nearMeStatus.textContent = "";
+                loadPlaces();
+            },
+            () => {
+                nearMeBox.checked = false;
+                nearMeStatus.textContent = "Could not get your location.";
+            },
+            { timeout: 10000 }
+        );
+    });
+
     openButton.addEventListener("click", () => {
         form.reset();
         errorBox.textContent = "";
@@ -110,6 +164,7 @@ document.addEventListener("DOMContentLoaded", () => {
             name: String(data.get("name") || "").trim(),
             description: String(data.get("description") || "").trim(),
             tags: data.getAll("tags"),
+            address: String(data.get("address") || "").trim(),
         };
 
         try {

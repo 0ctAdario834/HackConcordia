@@ -274,3 +274,20 @@ footer {
         max-width: 320px;
     }
 }
+
+.sort-options {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    width: 100%;
+}
+
+#near-me-status {
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.place-meta {
+    font-size: 0.85rem;
+    color: #666;
+}

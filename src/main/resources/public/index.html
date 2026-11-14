@@ -13,6 +13,11 @@
                     <input type="search" id="search" name="q" placeholder="search places">
                     <button type="submit" id="search-button">Search</button>
                 </form>
+                <div class="sort-options">
+                    <input type="checkbox" id="near-me">
+                    <label for="near-me">Sort by near me</label>
+                    <span id="near-me-status" role="status"></span>
+                </div>
                 <ul class="tags">
                     <li>
                         <input type="checkbox" id="tag1" value="Study">
@@ -39,6 +44,7 @@
                 <li class="result">
                     <h2></h2>
                     <p></p>
+                    <p class="place-meta"></p>
                 </li>
             </template>
             <div class="add-place">
