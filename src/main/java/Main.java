@@ -1,3 +1,5 @@
+import external.Geocoder;
+import external.NominatimGeocoder;
 import io.javalin.Javalin;
 import io.javalin.http.BadRequestResponse;
 import io.javalin.http.staticfiles.Location;
