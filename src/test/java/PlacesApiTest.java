@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -22,7 +23,7 @@ class PlacesApiTest {
     private static String baseUrl;
 
     @BeforeAll
-    static void startServer() throws IOException {
+    static void startServer() throws Exception {
         Path dbFile = Files.createTempFile("places-test", ".db");
         dbFile.toFile().deleteOnExit();
         System.setProperty("app.db.url", "jdbc:sqlite:" + dbFile.toAbsolutePath());
@@ -30,6 +31,11 @@ class PlacesApiTest {
         app = Main.createApp().start(0);
         client = HttpClient.newHttpClient();
         baseUrl = "http://localhost:" + app.port();
+
+        // Seed places for the filter tests. Names are distinctive so other tests don't interfere.
+        send("POST", "/api/places", json("Filter Alpha", "sunny reading room", "[\"Study\",\"Library\"]"));
+        send("POST", "/api/places", json("Filter Beta", "espresso and cake", "[\"Café\"]"));
+        send("POST", "/api/places", json("Filter Gamma", "hot lunches", "[\"Cafeteria\"]"));
     }
 
     @AfterAll
@@ -138,6 +144,81 @@ class PlacesApiTest {
         send("POST", "/api/places", json("Should Not Exist", "", "[\"Gym\"]"));
         String list = send("GET", "/api/places", null).body();
         assertFalse(list.contains("Should Not Exist"), list);
+    }
+
+    // --- filtering -----------------------------------------------------------
+
+    private static String enc(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private static String filter(String query) throws IOException, InterruptedException {
+        HttpResponse<String> response = send("GET", "/api/places?" + query, null);
+        assertEquals(200, response.statusCode(), response.body());
+        return response.body();
+    }
+
+    @Test
+    void searchMatchesNameCaseInsensitively() throws Exception {
+        String body = filter("q=" + enc("ALPHA"));
+        assertTrue(body.contains("Filter Alpha"), body);
+        assertFalse(body.contains("Filter Beta"), body);
+    }
+
+    @Test
+    void searchMatchesDescription() throws Exception {
+        String body = filter("q=" + enc("sunny"));
+        assertTrue(body.contains("Filter Alpha"), body);
+        assertFalse(body.contains("Filter Gamma"), body);
+    }
+
+    @Test
+    void searchTreatsPercentLiterally() throws Exception {
+        // "%" must not act as a wildcard that matches every place.
+        String body = filter("q=" + enc("%"));
+        assertFalse(body.contains("Filter Alpha"), body);
+        assertFalse(body.contains("Filter Beta"), body);
+    }
+
+    @Test
+    void searchTreatsUnderscoreLiterally() throws Exception {
+        String body = filter("q=" + enc("_"));
+        assertFalse(body.contains("Filter"), body);
+    }
+
+    @Test
+    void blankSearchReturnsEverything() throws Exception {
+        String body = filter("q=" + enc("   "));
+        assertTrue(body.contains("Filter Alpha") && body.contains("Filter Beta"), body);
+    }
+
+    @Test
+    void tagFilterMatchesAnySelectedTag() throws Exception {
+        // OR: Study (Alpha) or Café (Beta), but not Cafeteria (Gamma)
+        String body = filter("tags=" + enc("Study") + "&tags=" + enc("Café"));
+        assertTrue(body.contains("Filter Alpha"), body);
+        assertTrue(body.contains("Filter Beta"), body);
+        assertFalse(body.contains("Filter Gamma"), body);
+    }
+
+    @Test
+    void tagFilterMatchesWholeTagsOnly() throws Exception {
+        // "Café" must not match a place tagged "Cafeteria"
+        String body = filter("tags=" + enc("Café"));
+        assertTrue(body.contains("Filter Beta"), body);
+        assertFalse(body.contains("Filter Gamma"), body);
+    }
+
+    @Test
+    void searchAndTagsCombineWithAnd() throws Exception {
+        // "cake" is only in Beta, which is not tagged Study
+        String body = filter("q=" + enc("cake") + "&tags=" + enc("Study"));
+        assertFalse(body.contains("Filter"), body);
+    }
+
+    @Test
+    void unknownTagInFilterIsRejected() throws Exception {
+        assertEquals(400, send("GET", "/api/places?tags=" + enc("Gym"), null).statusCode());
     }
 
     @Test

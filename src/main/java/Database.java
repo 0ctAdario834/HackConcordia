@@ -52,21 +52,58 @@ public class Database {
         }
     }
 
-    public static List<Place> listPlaces() throws SQLException {
-        String sql = "SELECT id, name, description, tags FROM places ORDER BY id";
+    /**
+     * Lists places, optionally filtered.
+     * @param q    text to find in the name or description (case-insensitive); null or blank for none
+     * @param tags a place matches if it has any of these tags (OR); empty for no tag filter
+     */
+    public static List<Place> listPlaces(String q, List<String> tags) throws SQLException {
+        StringBuilder sql = new StringBuilder(
+                "SELECT id, name, description, tags FROM places WHERE 1=1");
+        List<String> params = new ArrayList<>();
+
+        if (q != null && !q.isBlank()) {
+            String pattern = "%" + escapeLike(q.trim()) + "%";
+            sql.append(" AND (name LIKE ? ESCAPE '\\' OR description LIKE ? ESCAPE '\\')");
+            params.add(pattern);
+            params.add(pattern);
+        }
+        if (!tags.isEmpty()) {
+            sql.append(" AND (");
+            for (int i = 0; i < tags.size(); i++) {
+                if (i > 0) {
+                    sql.append(" OR ");
+                }
+                // Tags are stored as ",Study,Library," style text, so match whole tags only
+                sql.append("(',' || tags || ',') LIKE ?");
+                params.add("%," + tags.get(i) + ",%");
+            }
+            sql.append(")");
+        }
+        sql.append(" ORDER BY id");
+
         List<Place> places = new ArrayList<>();
         try (Connection conn = connect();
-             Statement st = conn.createStatement();
-             ResultSet rs = st.executeQuery(sql)) {
-            while (rs.next()) {
-                places.add(new Place(
-                        rs.getLong("id"),
-                        rs.getString("name"),
-                        rs.getString("description"),
-                        splitTags(rs.getString("tags"))));
+             PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+            for (int i = 0; i < params.size(); i++) {
+                ps.setString(i + 1, params.get(i));
+            }
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    places.add(new Place(
+                            rs.getLong("id"),
+                            rs.getString("name"),
+                            rs.getString("description"),
+                            splitTags(rs.getString("tags"))));
+                }
             }
         }
         return places;
+    }
+
+    /** Escapes LIKE wildcards so user input is matched literally. */
+    private static String escapeLike(String text) {
+        return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
     }
 
     private static List<String> splitTags(String stored) {
