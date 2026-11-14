@@ -1,4 +1,4 @@
-// Once the DOM is loadede we
+// Once the DOM is loaded we
 document.addEventListener("DOMContentLoaded", () => {
     const results = document.getElementById("results");
     const template = document.getElementById("place-template");
@@ -7,6 +7,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const cancelButton = document.getElementById("cancel-place");
     const form = document.getElementById("add-place-form");
     const errorBox = document.getElementById("form-error");
+    const searchForm = document.querySelector("form.search-form");
+    const searchInput = document.getElementById("search");
+    const tagBoxes = document.querySelectorAll("header .tags input[type=checkbox]");
+
+    let searchTimer = null;
+    let latestRequest = null;
 
     function renderPlace(place) {
         const item = template.content.firstElementChild.cloneNode(true);
@@ -18,31 +24,74 @@ document.addEventListener("DOMContentLoaded", () => {
         return item;
     }
 
-    function renderPlaces(places) {
+    function renderPlaces(places, filtered) {
         results.replaceChildren();
         if (places.length === 0) {
             const empty = document.createElement("li");
-            empty.textContent = "No places yet. Add the first one!";
+            empty.textContent = filtered
+                ? "No places match these filters."
+                : "No places yet. Add the first one!";
             results.append(empty);
             return;
         }
         results.append(...places.map(renderPlace));
     }
 
+    // Builds the query string from the search box and the checked tags.
+    function currentFilters() {
+        const params = new URLSearchParams();
+        const q = searchInput.value.trim();
+        if (q) {
+            params.set("q", q);
+        }
+        tagBoxes.forEach((box) => {
+            if (box.checked) {
+                params.append("tags", box.value);
+            }
+        });
+        return params.toString();
+    }
+
     async function loadPlaces() {
+        // Cancel any earlier request so a slow old response can't overwrite a newer one.
+        if (latestRequest) {
+            latestRequest.abort();
+        }
+        const controller = new AbortController();
+        latestRequest = controller;
+
+        const query = currentFilters();
         try {
-            const response = await fetch("/api/places");
+            const response = await fetch("/api/places" + (query ? "?" + query : ""), {
+                signal: controller.signal,
+            });
             if (!response.ok) {
                 throw new Error("HTTP " + response.status);
             }
-            renderPlaces(await response.json());
+            renderPlaces(await response.json(), query !== "");
         } catch (err) {
+            if (err.name === "AbortError") {
+                return;
+            }
             results.replaceChildren();
             const failed = document.createElement("li");
             failed.textContent = "Could not load places.";
             results.append(failed);
         }
     }
+
+    searchForm.addEventListener("submit", (event) => {
+        event.preventDefault();
+        loadPlaces();
+    });
+
+    // Wait a moment after typing stops before searching.
+    searchInput.addEventListener("input", () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(loadPlaces, 250);
+    });
+
+    tagBoxes.forEach((box) => box.addEventListener("change", loadPlaces));
 
     openButton.addEventListener("click", () => {
         form.reset();
@@ -81,5 +130,5 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    loadPlaces();
+    loadPlaces().then();
 });

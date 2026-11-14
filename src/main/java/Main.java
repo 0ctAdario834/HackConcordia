@@ -23,7 +23,13 @@ public class Main {
             config.staticFiles.add("/public", Location.CLASSPATH)
         );
 
-        app.get("/api/places", ctx -> ctx.json(Database.listPlaces()));
+        app.get("/api/places", ctx -> {
+            // e.g. /api/places?q=coffee&tags=Study&tags=Café
+            String q = ctx.queryParam("q");
+            List<String> tags = ctx.queryParams("tags");
+            requireAllowedTags(tags);
+            ctx.json(Database.listPlaces(q, tags));
+        });
 
         app.post("/api/places", ctx -> {
             NewPlace body;
@@ -44,17 +50,21 @@ public class Main {
                 throw new BadRequestResponse("Description must be 500 characters or fewer.");
             }
             List<String> tags = body.tags == null ? List.of() : body.tags;
-            for (String tag : tags) {
-                if (!ALLOWED_TAGS.contains(tag)) {
-                    throw new BadRequestResponse("Unknown tag: " + tag);
-                }
-            }
+            requireAllowedTags(tags);
 
             Database.Place saved = Database.insertPlace(body.name.trim(), description, List.copyOf(tags));
             ctx.status(201).json(saved);
         });
 
         return app;
+    }
+
+    private static void requireAllowedTags(List<String> tags) {
+        for (String tag : tags) {
+            if (!ALLOWED_TAGS.contains(tag)) {
+                throw new BadRequestResponse("Unknown tag: " + tag);
+            }
+        }
     }
 
     public static void main(String[] args) {

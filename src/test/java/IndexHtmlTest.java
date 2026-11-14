@@ -111,6 +111,16 @@ class IndexHtmlTest {
     }
 
     @Test
+    void headerFilterValuesAreRealTagNames() throws IOException {
+        String h = loadHtml();
+        for (String tag : new String[] {"Study", "Library", "Café", "Cafeteria"}) {
+            assertTrue(h.contains("<input type=\"checkbox\" id=\"tag") && h.contains("value=\"" + tag + "\""),
+                    "header filter missing value " + tag);
+        }
+        assertFalse(h.contains("value=\"tag1\""), "header filter still uses placeholder values");
+    }
+
+    @Test
     void everyCheckboxHasUniqueId() throws IOException {
         Matcher m = CHECKBOX.matcher(loadHtml());
         Set<String> ids = new HashSet<>();
