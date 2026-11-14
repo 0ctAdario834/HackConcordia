@@ -17,4 +17,5 @@ Users can then search the locations by nearest distance or by tags.
 
 ## Future implementation goals
 - Ratings
+- Google Maps Link
 
